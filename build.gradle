@@ -1,0 +1,24 @@
+
+plugins {
+    id 'java'
+}
+
+jar {
+    manifest {
+        attributes 'Main-Class': 'com.akkaapp.app'
+    }
+}
+
+repositories {
+    mavenCentral()
+}
+
+def versions = [
+        ScalaBinary: "2.13"
+]
+dependencies {
+    implementation platform("com.typesafe.akka:akka-bom_${versions.ScalaBinary}:2.7.0")
+
+    implementation "com.typesafe.akka:akka-actor-typed_${versions.ScalaBinary}"
+    testImplementation "com.typesafe.akka:akka-actor-testkit-typed_${versions.ScalaBinary}"
+}
