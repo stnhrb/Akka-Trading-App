@@ -2,41 +2,33 @@ package com.akkaapp;
 
 import akka.actor.typed.ActorRef;
 import akka.actor.typed.Behavior;
+import akka.actor.typed.PostStop;
 import akka.actor.typed.javadsl.AbstractBehavior;
 import akka.actor.typed.javadsl.ActorContext;
 import akka.actor.typed.javadsl.Behaviors;
 import akka.actor.typed.javadsl.Receive;
 
-public class FinancialApp extends AbstractBehavior<FinancialApp.StartApp> {
 
-    public static class StartApp {
-        private final String appName;
+public class FinancialApp extends AbstractBehavior<Void> {
+    private final ActorRef<Void> queryActorRef;
 
-        public StartApp(String appName) {
-            this.appName = appName;
-        }
-    }
-
-    private final ActorRef<QuoteGenerator.Query> queryActorRef;
-
-    public static Behavior<StartApp> create() {
+    public static Behavior<Void> create() {
         return Behaviors.setup(context -> new FinancialApp(context));
     }
 
-    private FinancialApp(ActorContext<StartApp> context) {
+    private FinancialApp(ActorContext<Void> context) {
         super(context);
+        // TODO: spawn the rest of the app actors here
         queryActorRef = context.spawn(QuoteGenerator.create(), "QuoteGenerator");
     }
 
     @Override
-    public Receive<StartApp> createReceive() {
-        return newReceiveBuilder()
-                .onMessage(StartApp.class, this::onStart).build();
+    public Receive<Void> createReceive() {
+        return newReceiveBuilder().onSignal(PostStop.class, signal -> onPostStop()).build();
     }
 
-    private Behavior<StartApp> onStart(StartApp start) {
-        queryActorRef.tell(new QuoteGenerator.Company("ABC"));
-
+    private Behavior<Void> onPostStop() {
+        System.out.println("FinancialApp stopped");
         return this;
     }
 }
