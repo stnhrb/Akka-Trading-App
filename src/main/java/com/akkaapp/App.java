@@ -17,15 +17,15 @@ public class App {
     public static void main(String[] args) {
         ActorSystem<Void> mySystem = ActorSystem.create(FinancialApp.create(), "mySystem");
 
-        try { Thread.sleep(10000); } catch (InterruptedException e) { System.out.println(e); }
+//        try { Thread.sleep(10000); } catch (InterruptedException e) { System.out.println(e); }
 
-        System.out.println(mySystem.printTree());;
+//        System.out.println(mySystem.printTree());;
 
-        try { Thread.sleep(20000); } catch (InterruptedException e) { System.out.println(e); }
+//        try { Thread.sleep(20000); } catch (InterruptedException e) { System.out.println(e); }
 
-        System.out.println(mySystem.printTree());;
+//        System.out.println(mySystem.printTree());;
 
-        mySystem.terminate();
+//        mySystem.terminate();
 
 
         // TODO try timer with schActorTarget class to make it print a msg every x seconds.

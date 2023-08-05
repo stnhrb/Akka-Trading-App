@@ -8,18 +8,23 @@ import akka.actor.typed.javadsl.ActorContext;
 import akka.actor.typed.javadsl.Behaviors;
 import akka.actor.typed.javadsl.Receive;
 
+import java.time.Duration;
+
 
 public class FinancialApp extends AbstractBehavior<Void> {
-    private final ActorRef<Void> queryActorRef;
-
     public static Behavior<Void> create() {
         return Behaviors.setup(context -> new FinancialApp(context));
     }
 
     private FinancialApp(ActorContext<Void> context) {
         super(context);
-        // TODO: spawn the rest of the app actors here
-        queryActorRef = context.spawn(QuoteGenerator.create(), "QuoteGenerator");
+
+        ActorRef<QuoteGenerator.GenerateQuote> quoteGenerator
+                = context.spawn(QuoteGenerator.create(), "QuoteGenerator");
+        ActorRef<TimedQuoteMessenger.Command> timedQuoteMessenger
+                =  context.spawn(TimedQuoteMessenger.create(quoteGenerator, Duration.ofSeconds(3)), "TimedQuoteMessenger");
+
+        timedQuoteMessenger.tell(new TimedQuoteMessenger.Start());
     }
 
     @Override

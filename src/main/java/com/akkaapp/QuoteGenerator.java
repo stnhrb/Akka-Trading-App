@@ -2,10 +2,7 @@ package com.akkaapp;
 
 import akka.actor.typed.Behavior;
 import akka.actor.typed.PostStop;
-import akka.actor.typed.javadsl.AbstractBehavior;
-import akka.actor.typed.javadsl.ActorContext;
-import akka.actor.typed.javadsl.Behaviors;
-import akka.actor.typed.javadsl.Receive;
+import akka.actor.typed.javadsl.*;
 
 import java.util.HashMap;
 import java.util.Properties;
@@ -18,8 +15,8 @@ import org.apache.kafka.common.serialization.DoubleSerializer;
 import org.apache.kafka.common.serialization.StringSerializer;
 
 
-public class QuoteGenerator extends AbstractBehavior<Void> {
-
+class QuoteGenerator extends AbstractBehavior<QuoteGenerator.GenerateQuote> {
+    public static final class GenerateQuote { }
     private enum Companies {
         MSFT,
         AAPL,
@@ -28,13 +25,12 @@ public class QuoteGenerator extends AbstractBehavior<Void> {
         META
     }
 
-    public static Behavior<Void> create() {
+    public static Behavior<GenerateQuote> create() {
         return Behaviors.setup(context -> new QuoteGenerator(context));
     }
 
-    private QuoteGenerator(ActorContext<Void> context) {
+    private QuoteGenerator(ActorContext<GenerateQuote> context) {
         super(context);
-        publishQuotesToKafkaStream();
     }
 
     private KafkaProducer<String, Double> producer;
@@ -61,35 +57,34 @@ public class QuoteGenerator extends AbstractBehavior<Void> {
         return producer;
     }
 
-
-    private void publishQuotesToKafkaStream() {
+    private Behavior<GenerateQuote> publishQuotesToKafkaStream(GenerateQuote gq) {
         KafkaProducer<String, Double> producer = prepareKafkaProducer();
 
-        while (true) {
-            generateQuotes().forEach(
-                    (company, price) -> {
-                        ProducerRecord<String, Double> producerRecord =
-                                new ProducerRecord<>("market", company, price);
-                        producer.send(producerRecord);
-                        producer.flush();
+        generateQuotes().forEach(
+                (company, price) -> {
+                    ProducerRecord<String, Double> producerRecord =
+                            new ProducerRecord<>("market", company, price);
+                    producer.send(producerRecord);
+                    producer.flush();
 
-                        getContext().getLog().info("Quote sent: \n Company: " + producerRecord.key()+ " Price: " + producerRecord.value());
-                        System.out.println("Quote sent: \n Company: " + producerRecord.key()+ " Price: " + producerRecord.value());
+                    getContext().getLog().info("Quote sent: \n Company: " + producerRecord.key()+ " Price: " + producerRecord.value());
+                    System.out.println("Quote sent: \n Company: " + producerRecord.key()+ " Price: " + producerRecord.value());
 
-                    });
+                });
 
-            try { Thread.sleep(10000); } catch (InterruptedException e) { System.out.println(e); }
+        System.out.println("\n\n\n");
 
-            }
-   }
+        return this;
+    }
 
     @Override
-    public Receive<Void> createReceive() {
+    public Receive<GenerateQuote> createReceive() {
         return newReceiveBuilder()
+                .onMessage(GenerateQuote.class, this::publishQuotesToKafkaStream)
                 .onSignal(PostStop.class, signal -> onPostStop()).build();
     }
 
-    private Behavior<Void> onPostStop() {
+    private Behavior<GenerateQuote> onPostStop() {
         System.out.println("Closing Kafka stream ...");
         producer.close();
         System.out.println("Quote Generator stopped");
