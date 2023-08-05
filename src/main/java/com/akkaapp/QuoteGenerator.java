@@ -7,18 +7,16 @@ import akka.actor.typed.javadsl.ActorContext;
 import akka.actor.typed.javadsl.Behaviors;
 import akka.actor.typed.javadsl.Receive;
 
-import java.io.BufferedReader;
-import java.io.IOException;
-import java.io.InputStreamReader;
-import java.net.HttpURLConnection;
-import java.net.URL;
+import java.util.HashMap;
 import java.util.Properties;
 import java.util.Random;
 
 import org.apache.kafka.clients.producer.KafkaProducer;
 import org.apache.kafka.clients.producer.ProducerConfig;
 import org.apache.kafka.clients.producer.ProducerRecord;
+import org.apache.kafka.common.serialization.DoubleSerializer;
 import org.apache.kafka.common.serialization.StringSerializer;
+
 
 public class QuoteGenerator extends AbstractBehavior<Void> {
 
@@ -39,58 +37,51 @@ public class QuoteGenerator extends AbstractBehavior<Void> {
         publishQuotesToKafkaStream();
     }
 
-    private String companeyQoute() throws IOException {
-        URL url = new URL("https://www.alphavantage.co/query?function=TIME_SERIES_DAILY&symbol=IBM&apikey=WX1VVKD4QIZQKBHX");
-        HttpURLConnection con = (HttpURLConnection) url.openConnection();
-        con.setRequestMethod("GET");
+    private KafkaProducer<String, Double> producer;
 
-        int status = con.getResponseCode();
-        BufferedReader in = new BufferedReader(new InputStreamReader(con.getInputStream()));
-        String inputLine;
-        StringBuilder content = new StringBuilder();
+    private HashMap<String, Double> generateQuotes() {
+        HashMap<String, Double> quotes = new HashMap<>();
 
-        while ((inputLine = in.readLine()) != null) {
-            content.append(inputLine);
-        }
-        in.close();
+        for(Companies company: Companies.values())
+            quotes.put(company.name(), 20 + (60 - 20) * (new Random().nextDouble()));
 
-        System.out.println(status);
-        System.out.println(content);
-
-        return "";
+        return quotes;
     }
 
-    private void publishQuotesToKafkaStream() {
+    private KafkaProducer<String, Double> prepareKafkaProducer() {
         String bootstrapServers = "127.0.0.1:9092";
 
         Properties properties = new Properties();
         properties.setProperty(ProducerConfig.BOOTSTRAP_SERVERS_CONFIG, bootstrapServers);
         properties.setProperty(ProducerConfig.KEY_SERIALIZER_CLASS_CONFIG, StringSerializer.class.getName());
-        properties.setProperty(ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG, StringSerializer.class.getName());
+        properties.setProperty(ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG, DoubleSerializer.class.getName());
 
-        KafkaProducer<String, String> producer = new KafkaProducer<>(properties);
+        producer = new KafkaProducer<>(properties);
+
+        return producer;
+    }
+
+
+    private void publishQuotesToKafkaStream() {
+        KafkaProducer<String, Double> producer = prepareKafkaProducer();
 
         while (true) {
-            for(Companies company: Companies.values()){
-                double companyPrice = 10 + (100 - 10) * (new Random().nextDouble());
+            generateQuotes().forEach(
+                    (company, price) -> {
+                        ProducerRecord<String, Double> producerRecord =
+                                new ProducerRecord<>("market", company, price);
+                        producer.send(producerRecord);
+                        producer.flush();
 
-                ProducerRecord<String, String> producerRecord =
-                        new ProducerRecord<>("market", company.toString(), Double.toString(companyPrice));
+                        getContext().getLog().info("Quote sent: \n Company: " + producerRecord.key()+ " Price: " + producerRecord.value());
+                        System.out.println("Quote sent: \n Company: " + producerRecord.key()+ " Price: " + producerRecord.value());
 
-                producer.send(producerRecord);
-                System.out.println("Quote sent: \n Company: " + producerRecord.key()+ " Price: " + producerRecord.value());
+                    });
+
+            try { Thread.sleep(10000); } catch (InterruptedException e) { System.out.println(e); }
+
             }
-            producer.flush();
-            try {
-                Thread.sleep(8000);
-            } catch (InterruptedException e) {
-                System.out.println(e);
-            }
-        }
-
-        // flush and close producer
-//        producer.close();
-    }
+   }
 
     @Override
     public Receive<Void> createReceive() {
@@ -99,6 +90,8 @@ public class QuoteGenerator extends AbstractBehavior<Void> {
     }
 
     private Behavior<Void> onPostStop() {
+        System.out.println("Closing Kafka stream ...");
+        producer.close();
         System.out.println("Quote Generator stopped");
         return this;
     }
