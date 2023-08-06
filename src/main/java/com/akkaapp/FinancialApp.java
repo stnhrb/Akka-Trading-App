@@ -26,6 +26,8 @@ public class FinancialApp extends AbstractBehavior<Void> {
 
         timedQuoteMessenger.tell(new TimedQuoteMessenger.Start());
 
+        ActorRef<Trader.Request> trader
+                = context.spawn(Trader.create(), "Trader");
     }
 
     @Override
