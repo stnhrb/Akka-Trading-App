@@ -51,7 +51,7 @@ public class TimedQuoteMessenger {
         public Receive<Command> createReceive() {
             return newReceiveBuilder()
                     .onMessage(Timeout.class, message -> onTimeout())
-                    .onMessage(Command.class, mes -> onCommand())
+                    .onMessage(Command.class, message -> onCommand())
                     .build();
         }
 
