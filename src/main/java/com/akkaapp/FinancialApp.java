@@ -25,6 +25,7 @@ public class FinancialApp extends AbstractBehavior<Void> {
                 =  context.spawn(TimedQuoteMessenger.create(quoteGenerator, Duration.ofSeconds(3)), "TimedQuoteMessenger");
 
         timedQuoteMessenger.tell(new TimedQuoteMessenger.Start());
+
     }
 
     @Override

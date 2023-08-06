@@ -19,16 +19,13 @@ public class App {
 
         try { Thread.sleep(10000); } catch (InterruptedException e) { System.out.println(e); }
 
-        System.out.println(mySystem.printTree());;
+//        System.out.println(mySystem.printTree());
 
 //        try { Thread.sleep(20000); } catch (InterruptedException e) { System.out.println(e); }
 
 //        System.out.println(mySystem.printTree());;
 
-//        mySystem.terminate();
-
-
-        // TODO try timer with schActorTarget class to make it print a msg every x seconds.
+        mySystem.terminate();
 
     }
 }

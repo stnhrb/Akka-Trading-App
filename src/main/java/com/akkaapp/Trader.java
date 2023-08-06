@@ -8,10 +8,10 @@ import akka.actor.typed.javadsl.Receive;
 
 import java.util.HashMap;
 
-public class Trader extends AbstractBehavior<Trader.Order> {
+public class Trader extends AbstractBehavior<Trader.Request> {
 
-    interface Order { }
-    public static class BuyOrder implements Order {
+    interface Request { }
+    public static class BuyOrder implements Request {
         public final String compName;
 
         public BuyOrder(String compName) {
@@ -22,15 +22,15 @@ public class Trader extends AbstractBehavior<Trader.Order> {
     private double balance;
     private HashMap<String, Double> shares;
 
-    public static Behavior<Order> create(){
+    public static Behavior<Request> create(){
         return Behaviors.setup(context -> new Trader(context));
     }
 
-    private Trader(ActorContext<Order> context){
+    private Trader(ActorContext<Request> context){
        super(context);
     }
     @Override
-    public Receive<Order> createReceive() {
+    public Receive<Request> createReceive() {
         return null;
     }
 }

@@ -51,18 +51,18 @@ public class TimedQuoteMessenger {
         public Receive<Command> createReceive() {
             return newReceiveBuilder()
                     .onMessage(Timeout.class, message -> onTimeout())
-                    .onMessage(Command.class, message -> onCommand())
+                    .onMessage(Start.class, message -> onStart())
                     .build();
         }
 
-        private Behavior<Command> onCommand() {
+        private Behavior<Command> onStart() {
             target.tell(new QuoteGenerator.GenerateQuote());
             return this;
         }
 
         private Behavior<Command> onTimeout() {
             target.tell(new QuoteGenerator.GenerateQuote());
-            return idle(); // switch to idle
+            return idle();
         }
     }
 }
