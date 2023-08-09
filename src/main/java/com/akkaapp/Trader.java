@@ -1,6 +1,7 @@
 package com.akkaapp;
 
 import akka.actor.typed.Behavior;
+import akka.actor.typed.PostStop;
 import akka.actor.typed.javadsl.AbstractBehavior;
 import akka.actor.typed.javadsl.ActorContext;
 import akka.actor.typed.javadsl.Behaviors;
@@ -9,6 +10,7 @@ import akka.actor.typed.javadsl.Receive;
 
 import java.time.Duration;
 import java.util.Arrays;
+import java.util.Map;
 import java.util.Properties;
 
 import org.apache.kafka.clients.consumer.ConsumerConfig;
@@ -39,6 +41,7 @@ public class Trader extends AbstractBehavior<Trader.Request> {
 
     private double balance;
     private HashMap<String, Double> shares;
+    private KafkaConsumer<String, Double> consumer;
 
     public static Behavior<Request> create(){
         return Behaviors.setup(context -> new Trader(context));
@@ -49,12 +52,9 @@ public class Trader extends AbstractBehavior<Trader.Request> {
        KafkaConsumer();
     }
 
-    private void KafkaConsumer() {
-        System.out.println("inside kafka consumer");
-
+    private KafkaConsumer<String, Double> prepareKafkaProducer() {
         String bootstrapServers = "127.0.0.1:9092";
         String groupId = "my-app-1";
-        String topic = "market";
 
         Properties properties = new Properties();
         properties.setProperty(ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG, bootstrapServers);
@@ -63,9 +63,18 @@ public class Trader extends AbstractBehavior<Trader.Request> {
         properties.setProperty(ConsumerConfig.GROUP_ID_CONFIG, groupId);
         properties.setProperty(ConsumerConfig.AUTO_OFFSET_RESET_CONFIG, "latest");
 
-        KafkaConsumer<String, Double> consumer = new KafkaConsumer<>(properties);
+        consumer = new KafkaConsumer<>(properties);
 
-        consumer.subscribe(Arrays.asList(topic));
+        return consumer;
+    }
+
+    private void KafkaConsumer() {
+        System.out.println("inside kafka consumer");
+
+        KafkaConsumer<String, Double> consumer = this.prepareKafkaProducer();
+        String topicToConsumeFrom = "market";
+
+        consumer.subscribe(Arrays.asList(topicToConsumeFrom));
 
         while(true){
             // TODO: specify the company to be consumed and take the latest produced price
@@ -78,8 +87,20 @@ public class Trader extends AbstractBehavior<Trader.Request> {
         }
     }
 
+    private HashMap<String, Double> consumeFromKafkaStream() {
+        HashMap<String, Double> result = new HashMap<>();
+        result.put("", 2.2);
+
+        return result;
+    }
+
     @Override
     public Receive<Request> createReceive() {
-        return null;
+        return newReceiveBuilder().onSignal(PostStop.class, signal -> onPostStop()).build();
+    }
+
+    private Behavior<Request> onPostStop() {
+        consumer.close();
+        return this;
     }
 }
