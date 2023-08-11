@@ -10,21 +10,13 @@ import akka.actor.typed.javadsl.Receive;
 
 import java.time.Duration;
 import java.util.Arrays;
-import java.util.Map;
 import java.util.Properties;
 
 import org.apache.kafka.clients.consumer.ConsumerConfig;
-import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.apache.kafka.clients.consumer.ConsumerRecords;
 import org.apache.kafka.clients.consumer.KafkaConsumer;
-import org.apache.kafka.clients.producer.KafkaProducer;
-import org.apache.kafka.clients.producer.ProducerConfig;
-import org.apache.kafka.clients.producer.ProducerRecord;
-import org.apache.kafka.clients.producer.RecordMetadata;
 import org.apache.kafka.common.serialization.DoubleDeserializer;
-import org.apache.kafka.common.serialization.DoubleSerializer;
 import org.apache.kafka.common.serialization.StringDeserializer;
-import org.apache.kafka.common.serialization.StringSerializer;
 
 import java.util.HashMap;
 
@@ -49,10 +41,10 @@ public class Trader extends AbstractBehavior<Trader.Request> {
 
     private Trader(ActorContext<Request> context) {
        super(context);
-       KafkaConsumer();
+       KafkaConsumer<String, Double> consumer = this.prepareKafkaConsumer();
     }
 
-    private KafkaConsumer<String, Double> prepareKafkaProducer() {
+    private KafkaConsumer<String, Double> prepareKafkaConsumer() {
         String bootstrapServers = "127.0.0.1:9092";
         String groupId = "my-app-1";
 
@@ -68,35 +60,27 @@ public class Trader extends AbstractBehavior<Trader.Request> {
         return consumer;
     }
 
-    private void KafkaConsumer() {
-        System.out.println("inside kafka consumer");
+    private Behavior<Request> QuoteConsumer(BuyOrder order) {
+        System.out.println("inside the QuoteConsumer ...");
 
-        KafkaConsumer<String, Double> consumer = this.prepareKafkaProducer();
         String topicToConsumeFrom = "market";
-
         consumer.subscribe(Arrays.asList(topicToConsumeFrom));
 
-        while(true){
-            // TODO: specify the company to be consumed and take the latest produced price
-            ConsumerRecords<String, Double> records = consumer.poll(Duration.ofMillis(100));
+        ConsumerRecords<String, Double> records = consumer.poll(Duration.ofSeconds(1));
 
-            for (ConsumerRecord<String, Double> record : records){
-                System.out.println("Key: " + record.key() + ", Value: " + record.value() + ", timestamp: " + record.timestamp());
-                System.out.println("Partition: " + record.partition() + ", Offset:" + record.offset());
-            }
-        }
-    }
+        records.forEach(record -> {
+            if (record.key().equals(order.compName))
+                System.out.println("the required quote is + " + record.key() + " and its value is " + record.value() + " the offset is " + record.offset());
+        });
 
-    private HashMap<String, Double> consumeFromKafkaStream() {
-        HashMap<String, Double> result = new HashMap<>();
-        result.put("", 2.2);
-
-        return result;
+        return this;
     }
 
     @Override
     public Receive<Request> createReceive() {
-        return newReceiveBuilder().onSignal(PostStop.class, signal -> onPostStop()).build();
+        return newReceiveBuilder()
+                .onMessage(BuyOrder.class, this::QuoteConsumer)
+                .onSignal(PostStop.class, signal -> onPostStop()).build();
     }
 
     private Behavior<Request> onPostStop() {

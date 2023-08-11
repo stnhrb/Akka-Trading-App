@@ -28,6 +28,8 @@ public class FinancialApp extends AbstractBehavior<Void> {
 
         ActorRef<Trader.Request> trader
                 = context.spawn(Trader.create(), "Trader");
+
+        trader.tell(new Trader.BuyOrder("NVDA"));
     }
 
     @Override

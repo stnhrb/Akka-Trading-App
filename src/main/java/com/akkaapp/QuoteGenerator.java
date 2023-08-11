@@ -65,15 +65,10 @@ class QuoteGenerator extends AbstractBehavior<QuoteGenerator.GenerateQuote> {
                     ProducerRecord<String, Double> producerRecord =
                             new ProducerRecord<>("market", company, price);
                     producer.send(producerRecord);
-                    producer.flush();
-
+                });
+        producer.flush();
 //                    getContext().getLog().info("Quote sent: \n Company: " + producerRecord.key()+ " Price: " + producerRecord.value());
 //                    System.out.println("Quote sent: \n Company: " + producerRecord.key()+ " Price: " + producerRecord.value());
-
-                });
-
-        System.out.println("\n\n\n");
-
         return this;
     }
 
