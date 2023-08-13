@@ -22,14 +22,23 @@ public class FinancialApp extends AbstractBehavior<Void> {
         ActorRef<QuoteGenerator.GenerateQuote> quoteGenerator
                 = context.spawn(QuoteGenerator.create(), "QuoteGenerator");
         ActorRef<TimedQuoteMessenger.Command> timedQuoteMessenger
-                =  context.spawn(TimedQuoteMessenger.create(quoteGenerator, Duration.ofSeconds(3)), "TimedQuoteMessenger");
+                =  context.spawn(TimedQuoteMessenger.create(quoteGenerator, Duration.ofSeconds(2)), "TimedQuoteMessenger");
 
         timedQuoteMessenger.tell(new TimedQuoteMessenger.Start());
 
         ActorRef<Trader.Request> trader
                 = context.spawn(Trader.create(), "Trader");
 
-        trader.tell(new Trader.BuyOrder("NVDA"));
+        ActorRef<Auditor.Transaction> audit
+                = context.spawn(Auditor.create(), "Auditor");
+
+        trader.tell(new Trader.BuyRequest("NVDA", audit));
+        trader.tell(new Trader.BuyRequest("NVDA", audit));
+        trader.tell(new Trader.BuyRequest("NVDA", audit));
+        trader.tell(new Trader.BuyRequest("NVDA", audit));
+        trader.tell(new Trader.BuyRequest("NVDA", audit));
+        trader.tell(new Trader.BuyRequest("NVDA", audit));
+        trader.tell(new Trader.BuyRequest("NVDA", audit));
     }
 
     @Override
