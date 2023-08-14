@@ -33,10 +33,10 @@ public class FinancialApp extends AbstractBehavior<Void> {
                 = context.spawn(Auditor.create(), "Auditor");
 
         trader.tell(new Trader.BuyRequest("NVDA", audit));
-        trader.tell(new Trader.BuyRequest("NVDA", audit));
-        trader.tell(new Trader.BuyRequest("NVDA", audit));
-        trader.tell(new Trader.BuyRequest("NVDA", audit));
-        trader.tell(new Trader.BuyRequest("NVDA", audit));
+        trader.tell(new Trader.BuyRequest("MSFT", audit));
+        trader.tell(new Trader.BuyRequest("AAPL", audit));
+        trader.tell(new Trader.BuyRequest("AMZN", audit));
+        trader.tell(new Trader.BuyRequest("META", audit));
         trader.tell(new Trader.BuyRequest("NVDA", audit));
         trader.tell(new Trader.BuyRequest("NVDA", audit));
     }

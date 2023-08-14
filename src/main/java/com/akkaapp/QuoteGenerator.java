@@ -45,7 +45,7 @@ class QuoteGenerator extends AbstractBehavior<QuoteGenerator.GenerateQuote> {
     }
 
     private KafkaProducer<String, Double> prepareKafkaProducer() {
-        String bootstrapServers = "127.0.0.1:9092";
+        String bootstrapServers = "localhost:9092";
 
         Properties properties = new Properties();
         properties.setProperty(ProducerConfig.BOOTSTRAP_SERVERS_CONFIG, bootstrapServers);
@@ -65,6 +65,7 @@ class QuoteGenerator extends AbstractBehavior<QuoteGenerator.GenerateQuote> {
                     ProducerRecord<String, Double> producerRecord =
                             new ProducerRecord<>("market", company, price);
                     producer.send(producerRecord);
+                    System.out.println("Quote sent: \n Company: " + producerRecord.key()+ " Price: " + producerRecord.value());
                 });
         producer.flush();
 //                    getContext().getLog().info("Quote sent: \n Company: " + producerRecord.key()+ " Price: " + producerRecord.value());

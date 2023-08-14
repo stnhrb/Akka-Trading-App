@@ -58,7 +58,7 @@ public class Trader extends AbstractBehavior<Trader.Request> {
     }
 
     private KafkaConsumer<String, Double> prepareKafkaConsumer() {
-        String bootstrapServers = "127.0.0.1:9092";
+        String bootstrapServers = "localhost:9092";
         String groupId = "Trader@" + getContext().getSelf().path().uid();
 
         Properties properties = new Properties();
@@ -69,7 +69,6 @@ public class Trader extends AbstractBehavior<Trader.Request> {
         properties.setProperty(ConsumerConfig.AUTO_OFFSET_RESET_CONFIG, "latest");
 
         consumer = new KafkaConsumer<>(properties);
-
         return consumer;
     }
 
@@ -99,7 +98,7 @@ public class Trader extends AbstractBehavior<Trader.Request> {
         else
             System.out.println("Consumer poll records did not have any new quotes for the required company since the last time it polled.");
 
-        buyRequest.auditorRef.tell(new Auditor.BuyTransaction(latest_quote.key(), latest_quote.value()));
+        buyRequest.auditorRef.tell(new Auditor.BuyTransaction(latest_quote.key(), latest_quote.value(), getContext().getSelf()));
 
         return this;
     }
