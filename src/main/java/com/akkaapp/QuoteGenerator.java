@@ -45,7 +45,7 @@ class QuoteGenerator extends AbstractBehavior<QuoteGenerator.GenerateQuote> {
     }
 
     private KafkaProducer<String, Double> prepareKafkaProducer() {
-        String bootstrapServers = "localhost:9092";
+        String bootstrapServers = "localhost:29092";
 
         Properties properties = new Properties();
         properties.setProperty(ProducerConfig.BOOTSTRAP_SERVERS_CONFIG, bootstrapServers);
