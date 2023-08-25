@@ -7,11 +7,11 @@ import akka.actor.typed.javadsl.AbstractBehavior;
 import akka.actor.typed.javadsl.ActorContext;
 import akka.actor.typed.javadsl.Behaviors;
 import akka.actor.typed.javadsl.Receive;
-
 import java.time.Duration;
 
 
 public class FinancialApp extends AbstractBehavior<Void> {
+
     public static Behavior<Void> create() {
         return Behaviors.setup(context -> new FinancialApp(context));
     }
@@ -22,7 +22,7 @@ public class FinancialApp extends AbstractBehavior<Void> {
         ActorRef<QuoteGenerator.GenerateQuote> quoteGenerator
                 = context.spawn(QuoteGenerator.create(), "QuoteGenerator");
         ActorRef<TimedQuoteMessenger.Command> timedQuoteMessenger
-                =  context.spawn(TimedQuoteMessenger.create(quoteGenerator, Duration.ofSeconds(2)), "TimedQuoteMessenger");
+                =  context.spawn(TimedQuoteMessenger.create(quoteGenerator, Duration.ofSeconds(4)), "TimedQuoteMessenger");
 
         timedQuoteMessenger.tell(new TimedQuoteMessenger.Start());
 

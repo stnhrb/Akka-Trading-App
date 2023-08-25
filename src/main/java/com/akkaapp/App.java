@@ -8,12 +8,10 @@ public class App {
         ActorSystem<Void> mySystem = ActorSystem.create(FinancialApp.create(), "mySystem");
 //        System.out.println(mySystem.printTree());
 
-//        try { Thread.sleep(10000); } catch (InterruptedException e) { System.out.println(e); }
+        try { Thread.sleep(180000); } catch (InterruptedException e) { System.out.println(e); }
 
-//        System.out.println(mySystem.printTree());
-
-//        System.out.println("test");
-//        mySystem.terminate();
+        System.out.println(mySystem.printTree());
+        mySystem.terminate();
     }
 }
 

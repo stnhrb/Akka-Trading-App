@@ -65,11 +65,9 @@ class QuoteGenerator extends AbstractBehavior<QuoteGenerator.GenerateQuote> {
                     ProducerRecord<String, Double> producerRecord =
                             new ProducerRecord<>("market", company, price);
                     producer.send(producerRecord);
-                    System.out.println("Quote sent: \n Company: " + producerRecord.key()+ " Price: " + producerRecord.value());
+//                    System.out.println("Quote sent: \n Company: " + producerRecord.key() + " Price: " + producerRecord.value());
                 });
         producer.flush();
-//                    getContext().getLog().info("Quote sent: \n Company: " + producerRecord.key()+ " Price: " + producerRecord.value());
-//                    System.out.println("Quote sent: \n Company: " + producerRecord.key()+ " Price: " + producerRecord.value());
         return this;
     }
 
@@ -81,9 +79,9 @@ class QuoteGenerator extends AbstractBehavior<QuoteGenerator.GenerateQuote> {
     }
 
     private Behavior<GenerateQuote> onPostStop() {
-        System.out.println("Closing Kafka stream ...");
+        getContext().getLog().info("Closing Kafka stream ...");
         producer.close();
-        System.out.println("Quote Generator stopped");
+        getContext().getLog().info("Quote Generator stopped");
         return this;
     }
 }

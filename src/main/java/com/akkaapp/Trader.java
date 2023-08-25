@@ -44,6 +44,7 @@ public class Trader extends AbstractBehavior<Trader.Request> {
         }
     }
 
+    //TODO: store trader balance and bought shares
     private double balance;
     private HashMap<String, Double> shares;
     private KafkaConsumer<String, Double> consumer;
@@ -58,7 +59,7 @@ public class Trader extends AbstractBehavior<Trader.Request> {
     }
 
     private KafkaConsumer<String, Double> prepareKafkaConsumer() {
-        String bootstrapServers = "localhost:9092";
+        String bootstrapServers = "localhost:29092";
         String groupId = "Trader@" + getContext().getSelf().path().uid();
 
         Properties properties = new Properties();
@@ -80,6 +81,7 @@ public class Trader extends AbstractBehavior<Trader.Request> {
 
         Iterator recordsIterator = records.iterator();
 
+        // TODO: try to modify this null
         ConsumerRecord<String, Double> latest_quote = null;
         while(recordsIterator.hasNext()) {
             ConsumerRecord<String, Double> rcd = (ConsumerRecord<String, Double>) recordsIterator.next();
@@ -93,12 +95,13 @@ public class Trader extends AbstractBehavior<Trader.Request> {
     private Behavior<Request> buyShare(BuyRequest buyRequest) {
         ConsumerRecord<String, Double> latest_quote = this.quoteConsumer(buyRequest.companyName);
 
-        if (latest_quote != null)
+        if (latest_quote != null) {
             System.out.println("the required quote is + " + latest_quote.key() + " and its value is " + latest_quote.value() + " the offset is " + latest_quote.offset());
+            buyRequest.auditorRef.tell(new Auditor.BuyTransaction(latest_quote.key(), latest_quote.value(), getContext().getSelf()));
+        }
         else
             System.out.println("Consumer poll records did not have any new quotes for the required company since the last time it polled.");
 
-        buyRequest.auditorRef.tell(new Auditor.BuyTransaction(latest_quote.key(), latest_quote.value(), getContext().getSelf()));
 
         return this;
     }

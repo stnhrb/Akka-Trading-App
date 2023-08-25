@@ -9,7 +9,6 @@ import akka.actor.typed.javadsl.Behaviors;
 import akka.actor.typed.javadsl.Receive;
 
 import java.sql.*;
-import java.util.HashMap;
 import java.util.Properties;
 
 public class Auditor extends AbstractBehavior<Auditor.Transaction> {
@@ -93,8 +92,7 @@ public class Auditor extends AbstractBehavior<Auditor.Transaction> {
     }
 
     private Behavior<Transaction> AcknowledgeBuyTransaction(BuyTransaction buyTransaction) {
-        // TODO:
-        //  validate the received buy or sell transaction
+        // TODO: validate the received buy or sell transaction
 
         if (insertIntoDb(buyTransaction))
             System.out.println("Buy Transaction Acknowledged");
