@@ -39,6 +39,7 @@ public class Auditor extends AbstractBehavior<Auditor.Transaction> {
         super(context);
         databaseConnection = preparedatabaseConnection();
         createTransactionsTable(databaseConnection);
+        createSharesTable(databaseConnection);
     }
 
     private Connection preparedatabaseConnection() {
@@ -59,7 +60,7 @@ public class Auditor extends AbstractBehavior<Auditor.Transaction> {
     private void createTransactionsTable(Connection databaseConnection) {
         try {
             Statement createStatement = databaseConnection.createStatement();
-            String sqlStatement = "CREATE TABLE Transactions (" +
+            String sqlStatement = "CREATE TABLE transactions (" +
                                     "id serial PRIMARY KEY NOT NULL, " +
                                     "Trader VARCHAR ( 100 ) NOT NULL, " +
                                     "Transaction_type VARCHAR ( 4 ) NOT NULL, " +
@@ -71,7 +72,24 @@ public class Auditor extends AbstractBehavior<Auditor.Transaction> {
             System.out.println(e);
         }
     }
-    private boolean insertIntoDb(BuyTransaction buyTransaction) {
+
+    private void createSharesTable(Connection databaseConnection) {
+        try {
+            Statement createStatement = databaseConnection.createStatement();
+            String sqlStatement = "CREATE TABLE shares (" +
+                    "trader VARCHAR ( 100 ) NOT NULL, " +
+                    "company VARCHAR ( 10 ) NOT NULL, " +
+                    "num_of_shares INTEGER NOT NULL, " +
+                    "avg_buy_price NUMERIC(6,4) NOT NULL, " +
+                    "last_bought_share TIMESTAMP DEFAULT CURRENT_TIMESTAMP NOT NULL, " +
+                    "PRIMARY KEY (trader, company));";
+            createStatement.executeUpdate(sqlStatement);
+        } catch (SQLException e) {
+            System.out.println(e);
+        }
+    }
+
+    private boolean insertIntoTransactionDb(BuyTransaction buyTransaction) {
         try {
             String sqlStatement = "INSERT INTO public.transactions(" +
                                   "trader, transaction_type, company, price) " +
@@ -91,12 +109,40 @@ public class Auditor extends AbstractBehavior<Auditor.Transaction> {
         }
     }
 
+    private boolean insertIntoTSharesDb(BuyTransaction buyTransaction) {
+        try {
+            String traderId = "Trader@" + buyTransaction.trader.path().uid();
+            String companyName = buyTransaction.companyName;
+            double avg_buy_price = buyTransaction.price;
+
+            String getSharesSqlStatement = """
+                    select (select count(id) from public.transactions where trader = '%1$s' and company = '%2$s' and transaction_type = 'Buy') -
+                    (select count(id) from public.transactions where trader = '%1$s' and company = '%2$s' and transaction_type = 'Sell')
+                    """.formatted(traderId, companyName);
+
+            String getAvgSqlStatement = "select avg(price) from public.transactions where trader = '" + traderId + "' and company = '"+ companyName +"'";
+
+            String sqlStatement = "INSERT INTO public.shares(" +
+                    "trader, company, num_of_shares, avg_buy_price) " +
+                    "VALUES ('" + traderId + "', '"+ companyName +"', 1, " + avg_buy_price + ") ON CONFLICT (trader, company) " +
+                    "DO UPDATE SET num_of_shares = (" + getSharesSqlStatement + "), avg_buy_price = (" + getAvgSqlStatement + ");";
+
+            Statement statement = databaseConnection.createStatement();
+            statement.executeUpdate(sqlStatement);
+            return true;
+        } catch (SQLException e) {
+            System.out.println(e);
+            return false;
+        }
+    }
+
     private Behavior<Transaction> AcknowledgeBuyTransaction(BuyTransaction buyTransaction) {
         // TODO: validate the received buy or sell transaction
 
-        if (insertIntoDb(buyTransaction))
+        if (insertIntoTransactionDb(buyTransaction)) { // TODO: insertion to transaction and shares should be an atomic transaction
+            insertIntoTSharesDb(buyTransaction);
             System.out.println("Buy Transaction Acknowledged");
-        else
+        } else
             System.out.println("An error occurred.");
         return this;
     }

@@ -21,13 +21,14 @@ public class FinancialApp extends AbstractBehavior<Void> {
 
         ActorRef<QuoteGenerator.GenerateQuote> quoteGenerator
                 = context.spawn(QuoteGenerator.create(), "QuoteGenerator");
+
         ActorRef<TimedQuoteMessenger.Command> timedQuoteMessenger
                 =  context.spawn(TimedQuoteMessenger.create(quoteGenerator, Duration.ofSeconds(4)), "TimedQuoteMessenger");
 
         timedQuoteMessenger.tell(new TimedQuoteMessenger.Start());
 
         ActorRef<Trader.Request> trader
-                = context.spawn(Trader.create(), "Trader");
+                = context.spawn(Trader.create(250), "Trader");
 
         ActorRef<Auditor.Transaction> audit
                 = context.spawn(Auditor.create(), "Auditor");

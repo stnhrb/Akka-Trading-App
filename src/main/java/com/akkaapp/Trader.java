@@ -21,6 +21,7 @@ import org.apache.kafka.common.serialization.StringDeserializer;
 
 public class Trader extends AbstractBehavior<Trader.Request> {
 
+    private KafkaConsumer<String, Double> consumer;
     interface Request { }
     public static class BuyRequest implements Request {
         public final String companyName;
@@ -47,15 +48,15 @@ public class Trader extends AbstractBehavior<Trader.Request> {
     //TODO: store trader balance and bought shares
     private double balance;
     private HashMap<String, Double> shares;
-    private KafkaConsumer<String, Double> consumer;
 
-    public static Behavior<Request> create(){
-        return Behaviors.setup(context -> new Trader(context));
+    public static Behavior<Request> create(double balance){
+        return Behaviors.setup(context -> new Trader(context, balance));
     }
 
-    private Trader(ActorContext<Request> context) {
+    private Trader(ActorContext<Request> context, double balance) {
        super(context);
-       consumer = this.prepareKafkaConsumer();
+       this.balance = balance;
+       this.consumer = this.prepareKafkaConsumer();
     }
 
     private KafkaConsumer<String, Double> prepareKafkaConsumer() {
@@ -95,13 +96,17 @@ public class Trader extends AbstractBehavior<Trader.Request> {
     private Behavior<Request> buyShare(BuyRequest buyRequest) {
         ConsumerRecord<String, Double> latest_quote = this.quoteConsumer(buyRequest.companyName);
 
-        if (latest_quote != null) {
-            System.out.println("the required quote is + " + latest_quote.key() + " and its value is " + latest_quote.value() + " the offset is " + latest_quote.offset());
-            buyRequest.auditorRef.tell(new Auditor.BuyTransaction(latest_quote.key(), latest_quote.value(), getContext().getSelf()));
+        if (this.balance >= latest_quote.value()) {
+            balance = balance - latest_quote.value();
+            if (latest_quote != null) {
+                System.out.println("the required quote is + " + latest_quote.key() + " and its value is " + latest_quote.value() + " the offset is " + latest_quote.offset());
+                buyRequest.auditorRef.tell(new Auditor.BuyTransaction(latest_quote.key(), latest_quote.value(), getContext().getSelf()));
+            } else
+                System.out.println("Consumer poll records did not have any new quotes for the required company since the last time it polled.");
+            return this;
+        } else {
+            System.out.println("There is not enough balance to buy the required share: " + latest_quote.key() + " price: " + latest_quote.value() + ". Current balance: " + balance);
         }
-        else
-            System.out.println("Consumer poll records did not have any new quotes for the required company since the last time it polled.");
-
 
         return this;
     }
