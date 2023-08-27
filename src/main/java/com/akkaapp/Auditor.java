@@ -7,8 +7,11 @@ import akka.actor.typed.javadsl.AbstractBehavior;
 import akka.actor.typed.javadsl.ActorContext;
 import akka.actor.typed.javadsl.Behaviors;
 import akka.actor.typed.javadsl.Receive;
+import com.typesafe.config.ConfigException;
 
 import java.sql.*;
+import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.Properties;
 
 public class Auditor extends AbstractBehavior<Auditor.Transaction> {
@@ -16,13 +19,13 @@ public class Auditor extends AbstractBehavior<Auditor.Transaction> {
     public interface Transaction { }
     public static class BuyTransaction implements Transaction {
         public final String companyName;
-        public final Double price;
+        public final double price;
 
         public final String transactionType = "Buy";
 
-        public final ActorRef<Trader.Request> trader;
+        public final ActorRef<Trader.Signal> trader;
 
-        public BuyTransaction(String companyName, Double price, ActorRef<Trader.Request> trader) {
+        public BuyTransaction(String companyName, double price, ActorRef<Trader.Signal> trader) {
             this.companyName = companyName;
             this.price = price;
             this.trader = trader;
@@ -136,17 +139,46 @@ public class Auditor extends AbstractBehavior<Auditor.Transaction> {
         }
     }
 
+    private ArrayList<HashMap<String, Object>> returnTraderSharesInfo(ActorRef<Trader.Signal> trader) {
+        try {
+            String traderId = "Trader@" + trader.path().uid();
+            String sqlStatement = """
+                    select * from public.shares where trader = '%s'
+                    """.formatted(traderId);
+
+            Statement statement = databaseConnection.createStatement();
+            ResultSet queryResultSet = statement.executeQuery(sqlStatement);
+            ArrayList<HashMap<String, Object>> traderShares = new ArrayList<>();
+
+            while (queryResultSet.next()) {
+                HashMap<String, Object> traderShareInfo = new HashMap<>();
+                traderShareInfo.put("company", queryResultSet.getString("company"));
+                traderShareInfo.put("num_of_shares", queryResultSet.getInt("num_of_shares"));
+                traderShareInfo.put("avg_buy_price", queryResultSet.getDouble("avg_buy_price"));
+                traderShareInfo.put("last_bought_share", queryResultSet.getTimestamp("last_bought_share"));
+                traderShares.add(traderShareInfo);
+            }
+
+            return traderShares;
+        } catch (SQLException e) {
+            System.out.println(e);
+            return null;
+        }
+    }
+
     private Behavior<Transaction> AcknowledgeBuyTransaction(BuyTransaction buyTransaction) {
         // TODO: validate the received buy or sell transaction
 
         if (insertIntoTransactionDb(buyTransaction)) { // TODO: insertion to transaction and shares should be an atomic transaction
             insertIntoTSharesDb(buyTransaction);
+            ArrayList<HashMap<String, Object>> traderShares = returnTraderSharesInfo(buyTransaction.trader);
+            buyTransaction.trader.tell(new Trader.Shares(traderShares));
+            System.out.println("Trader@" + buyTransaction.trader.path().uid() + " shares are: " + traderShares);
             System.out.println("Buy Transaction Acknowledged");
         } else
             System.out.println("An error occurred.");
         return this;
     }
-
 
     @Override
     public Receive<Transaction> createReceive() {

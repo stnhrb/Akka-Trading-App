@@ -27,19 +27,23 @@ public class FinancialApp extends AbstractBehavior<Void> {
 
         timedQuoteMessenger.tell(new TimedQuoteMessenger.Start());
 
-        ActorRef<Trader.Request> trader
+        ActorRef<Trader.Signal> trader
                 = context.spawn(Trader.create(250), "Trader");
 
         ActorRef<Auditor.Transaction> audit
                 = context.spawn(Auditor.create(), "Auditor");
 
-        trader.tell(new Trader.BuyRequest("NVDA", audit));
-        trader.tell(new Trader.BuyRequest("MSFT", audit));
-        trader.tell(new Trader.BuyRequest("AAPL", audit));
-        trader.tell(new Trader.BuyRequest("AMZN", audit));
-        trader.tell(new Trader.BuyRequest("META", audit));
-        trader.tell(new Trader.BuyRequest("NVDA", audit));
-        trader.tell(new Trader.BuyRequest("NVDA", audit));
+        ActorRef<Broker.Request> broker
+                = context.spawn(Broker.create(audit), "Broker");
+
+
+        trader.tell(new Trader.BuySignal("NVDA", broker));
+        trader.tell(new Trader.BuySignal("MSFT", broker));
+        trader.tell(new Trader.BuySignal("AAPL", broker));
+        trader.tell(new Trader.BuySignal("AMZN", broker));
+        trader.tell(new Trader.BuySignal("META", broker));
+        trader.tell(new Trader.BuySignal("NVDA", broker));
+        trader.tell(new Trader.BuySignal("NVDA", broker));
     }
 
     @Override

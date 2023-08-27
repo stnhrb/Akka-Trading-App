@@ -19,41 +19,49 @@ import org.apache.kafka.clients.consumer.KafkaConsumer;
 import org.apache.kafka.common.serialization.DoubleDeserializer;
 import org.apache.kafka.common.serialization.StringDeserializer;
 
-public class Trader extends AbstractBehavior<Trader.Request> {
+public class Trader extends AbstractBehavior<Trader.Signal> {
 
     private KafkaConsumer<String, Double> consumer;
-    interface Request { }
-    public static class BuyRequest implements Request {
-        public final String companyName;
-        public final ActorRef<Auditor.Transaction> auditorRef;
+    interface Signal { }
 
-        public BuyRequest(String companyName, ActorRef<Auditor.Transaction> auditorRef) {
-            this.companyName = companyName;
-            this.auditorRef = auditorRef;
+    public static class Shares implements Signal {
+        public final ArrayList<HashMap<String, Object>> traderShares;
+
+        public Shares(ArrayList<HashMap<String, Object>> traderShares) {
+            this.traderShares = traderShares;
         }
     }
 
-    public static class SellRequest implements Request {
+    public static class BuySignal implements Signal {
+        public final String companyName;
+        public final ActorRef<Broker.Request> brokerRef;
+
+        public BuySignal(String companyName, ActorRef<Broker.Request> brokerRef) {
+            this.companyName = companyName;
+            this.brokerRef = brokerRef;
+        }
+    }
+
+    public static class SellSignal implements Signal {
         public final String companyName;
         public final double sellPrice;
-        public final ActorRef<Auditor.Transaction> auditorRef;
+        public final ActorRef<Broker.Request> brokerRef;
 
-        public SellRequest(String companyName, double sellPrice, ActorRef<Auditor.Transaction> auditorRef) {
+        public SellSignal(String companyName, double sellPrice, ActorRef<Broker.Request> brokerRef) {
             this.companyName = companyName;
             this.sellPrice = sellPrice;
-            this.auditorRef = auditorRef;
+            this.brokerRef = brokerRef;
         }
     }
 
-    //TODO: store trader balance and bought shares
     private double balance;
-    private HashMap<String, Double> shares;
+    private ArrayList<HashMap<String, Object>> shares = null;
 
-    public static Behavior<Request> create(double balance){
+    public static Behavior<Signal> create(double balance){
         return Behaviors.setup(context -> new Trader(context, balance));
     }
 
-    private Trader(ActorContext<Request> context, double balance) {
+    private Trader(ActorContext<Signal> context, double balance) {
        super(context);
        this.balance = balance;
        this.consumer = this.prepareKafkaConsumer();
@@ -77,15 +85,15 @@ public class Trader extends AbstractBehavior<Trader.Request> {
     private ConsumerRecord<String, Double> quoteConsumer(String companyName) {
         String topicToConsumeFrom = "market";
 
-        consumer.subscribe(Arrays.asList(topicToConsumeFrom));
+        consumer.subscribe(List.of(topicToConsumeFrom));
         ConsumerRecords<String, Double> records  = consumer.poll(Duration.ofSeconds(10));
 
-        Iterator recordsIterator = records.iterator();
+        Iterator<ConsumerRecord<String, Double>> recordsIterator = records.iterator();
 
         // TODO: try to modify this null
         ConsumerRecord<String, Double> latest_quote = null;
         while(recordsIterator.hasNext()) {
-            ConsumerRecord<String, Double> rcd = (ConsumerRecord<String, Double>) recordsIterator.next();
+            ConsumerRecord<String, Double> rcd = recordsIterator.next();
             if(rcd.key().equals(companyName))
                 latest_quote = rcd;
         }
@@ -93,14 +101,14 @@ public class Trader extends AbstractBehavior<Trader.Request> {
         return latest_quote;
     }
 
-    private Behavior<Request> buyShare(BuyRequest buyRequest) {
-        ConsumerRecord<String, Double> latest_quote = this.quoteConsumer(buyRequest.companyName);
+    private Behavior<Signal> buyShare(BuySignal buySignal) {
+        ConsumerRecord<String, Double> latest_quote = this.quoteConsumer(buySignal.companyName);
 
         if (this.balance >= latest_quote.value()) {
             balance = balance - latest_quote.value();
             if (latest_quote != null) {
                 System.out.println("the required quote is + " + latest_quote.key() + " and its value is " + latest_quote.value() + " the offset is " + latest_quote.offset());
-                buyRequest.auditorRef.tell(new Auditor.BuyTransaction(latest_quote.key(), latest_quote.value(), getContext().getSelf()));
+                buySignal.brokerRef.tell(new Broker.BuyRequest(latest_quote.key(), latest_quote.value(), getContext().getSelf()));
             } else
                 System.out.println("Consumer poll records did not have any new quotes for the required company since the last time it polled.");
             return this;
@@ -111,15 +119,28 @@ public class Trader extends AbstractBehavior<Trader.Request> {
         return this;
     }
 
-    private Behavior<Request> onPostStop() {
+    private Behavior<Signal> sellShare(SellSignal sellSignal) {
+
+        return this;
+    }
+
+    private Behavior<Signal> updateShares(Shares shares) {
+        this.shares = shares.traderShares;
+        System.out.println("trader shares updated | shares = " + this.shares);
+        return this;
+    }
+
+    private Behavior<Signal> onPostStop() {
         consumer.close();
         return this;
     }
 
     @Override
-    public Receive<Request> createReceive() {
+    public Receive<Signal> createReceive() {
         return newReceiveBuilder()
-                .onMessage(BuyRequest.class, this::buyShare)
+                .onMessage(BuySignal.class, this::buyShare)
+                .onMessage(SellSignal.class, this::sellShare)
+                .onMessage(Shares.class, this::updateShares)
                 .onSignal(PostStop.class, signal -> onPostStop()).build();
     }
 }
