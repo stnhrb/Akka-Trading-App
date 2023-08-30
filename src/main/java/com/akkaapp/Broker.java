@@ -6,7 +6,8 @@ import akka.actor.typed.Behavior;
 import akka.actor.typed.javadsl.AbstractBehavior;
 import akka.actor.typed.javadsl.Behaviors;
 import akka.actor.typed.javadsl.Receive;
-import akka.japi.pf.ReceiveBuilder;
+import org.apache.kafka.clients.consumer.ConsumerRecord;
+import org.apache.kafka.clients.consumer.KafkaConsumer;
 
 public class Broker extends AbstractBehavior<Broker.Request> {
 
@@ -26,17 +27,19 @@ public class Broker extends AbstractBehavior<Broker.Request> {
 
     public static class SellRequest implements Broker.Request {
         public final String companyName;
-        public final double sellPrice;
-        public final ActorRef<Auditor.Transaction> auditorRef;
+        public final int numOfShares;
+        public final ActorRef<Trader.Signal> TraderRef;
 
-        public SellRequest(String companyName, double sellPrice, ActorRef<Auditor.Transaction> auditorRef) {
+        public SellRequest(String companyName, int numOfShares, ActorRef<Trader.Signal> TraderRef) {
             this.companyName = companyName;
-            this.sellPrice = sellPrice;
-            this.auditorRef = auditorRef;
+            this.numOfShares = numOfShares;
+            this.TraderRef = TraderRef;
         }
     }
 
     private ActorRef<Auditor.Transaction> auditor;
+    private KafkaConsumer<String, Double> consumer;
+
 
     public static Behavior<Request> create(ActorRef<Auditor.Transaction> auditor) {
         return Behaviors.setup(context -> new Broker(context, auditor));
@@ -45,12 +48,14 @@ public class Broker extends AbstractBehavior<Broker.Request> {
     private Broker(ActorContext<Request> context, ActorRef<Auditor.Transaction> auditor) {
         super(context);
         this.auditor = auditor;
+        this.consumer = KafkaHelper.prepareKafkaConsumer(getContext().getSelf());
     }
 
     @Override
     public Receive<Request> createReceive() {
         return newReceiveBuilder()
                 .onMessage(BuyRequest.class, this::AcknowledgeBuyRequest)
+                .onMessage(SellRequest.class, this::AcknowledgeSellRequest)
                 .build();
     }
 
@@ -58,5 +63,20 @@ public class Broker extends AbstractBehavior<Broker.Request> {
         auditor.tell(new Auditor.BuyTransaction(buyRequest.companyName, buyRequest.price, buyRequest.TraderRef));
         return this;
     }
+
+    private Behavior<Request> AcknowledgeSellRequest(SellRequest sellRequest) {
+        boolean foundPriceMatch = matchSellingRequest(sellRequest);
+
+        return this;
+    }
+
+    private boolean matchSellingRequest(SellRequest sellRequest) {
+        for (int i = 0; i < sellRequest.numOfShares; i++) {}
+
+        ConsumerRecord<String, Double> latest_quote = KafkaHelper.quoteConsumer(sellRequest.companyName, consumer);
+
+        return false;
+    }
+
 
 }

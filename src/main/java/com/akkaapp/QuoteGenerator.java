@@ -44,21 +44,8 @@ class QuoteGenerator extends AbstractBehavior<QuoteGenerator.GenerateQuote> {
         return quotes;
     }
 
-    private KafkaProducer<String, Double> prepareKafkaProducer() {
-        String bootstrapServers = "localhost:29092";
-
-        Properties properties = new Properties();
-        properties.setProperty(ProducerConfig.BOOTSTRAP_SERVERS_CONFIG, bootstrapServers);
-        properties.setProperty(ProducerConfig.KEY_SERIALIZER_CLASS_CONFIG, StringSerializer.class.getName());
-        properties.setProperty(ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG, DoubleSerializer.class.getName());
-
-        producer = new KafkaProducer<>(properties);
-
-        return producer;
-    }
-
     private Behavior<GenerateQuote> publishQuotesToKafkaStream(GenerateQuote gq) {
-        KafkaProducer<String, Double> producer = prepareKafkaProducer();
+        KafkaProducer<String, Double> producer = KafkaHelper.prepareKafkaProducer();
 
         generateQuotes().forEach(
                 (company, price) -> {

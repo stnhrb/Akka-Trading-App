@@ -44,6 +44,8 @@ public class FinancialApp extends AbstractBehavior<Void> {
         trader.tell(new Trader.BuySignal("META", broker));
         trader.tell(new Trader.BuySignal("NVDA", broker));
         trader.tell(new Trader.BuySignal("NVDA", broker));
+
+        trader.tell(new Trader.SellSignal("NVDA", 1, broker));
     }
 
     @Override

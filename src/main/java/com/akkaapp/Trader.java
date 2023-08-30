@@ -7,17 +7,9 @@ import akka.actor.typed.javadsl.AbstractBehavior;
 import akka.actor.typed.javadsl.ActorContext;
 import akka.actor.typed.javadsl.Behaviors;
 import akka.actor.typed.javadsl.Receive;
-
-
-import java.time.Duration;
 import java.util.*;
-
-import org.apache.kafka.clients.consumer.ConsumerConfig;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
-import org.apache.kafka.clients.consumer.ConsumerRecords;
 import org.apache.kafka.clients.consumer.KafkaConsumer;
-import org.apache.kafka.common.serialization.DoubleDeserializer;
-import org.apache.kafka.common.serialization.StringDeserializer;
 
 public class Trader extends AbstractBehavior<Trader.Signal> {
 
@@ -44,12 +36,12 @@ public class Trader extends AbstractBehavior<Trader.Signal> {
 
     public static class SellSignal implements Signal {
         public final String companyName;
-        public final double sellPrice;
+        public final int numOfShares;
         public final ActorRef<Broker.Request> brokerRef;
 
-        public SellSignal(String companyName, double sellPrice, ActorRef<Broker.Request> brokerRef) {
+        public SellSignal(String companyName, int numOfShares, ActorRef<Broker.Request> brokerRef) {
             this.companyName = companyName;
-            this.sellPrice = sellPrice;
+            this.numOfShares = numOfShares;
             this.brokerRef = brokerRef;
         }
     }
@@ -64,45 +56,11 @@ public class Trader extends AbstractBehavior<Trader.Signal> {
     private Trader(ActorContext<Signal> context, double balance) {
        super(context);
        this.balance = balance;
-       this.consumer = this.prepareKafkaConsumer();
-    }
-
-    private KafkaConsumer<String, Double> prepareKafkaConsumer() {
-        String bootstrapServers = "localhost:29092";
-        String groupId = "Trader@" + getContext().getSelf().path().uid();
-
-        Properties properties = new Properties();
-        properties.setProperty(ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG, bootstrapServers);
-        properties.setProperty(ConsumerConfig.KEY_DESERIALIZER_CLASS_CONFIG, StringDeserializer.class.getName());
-        properties.setProperty(ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG, DoubleDeserializer.class.getName());
-        properties.setProperty(ConsumerConfig.GROUP_ID_CONFIG, groupId);
-        properties.setProperty(ConsumerConfig.AUTO_OFFSET_RESET_CONFIG, "latest");
-
-        consumer = new KafkaConsumer<>(properties);
-        return consumer;
-    }
-
-    private ConsumerRecord<String, Double> quoteConsumer(String companyName) {
-        String topicToConsumeFrom = "market";
-
-        consumer.subscribe(List.of(topicToConsumeFrom));
-        ConsumerRecords<String, Double> records  = consumer.poll(Duration.ofSeconds(10));
-
-        Iterator<ConsumerRecord<String, Double>> recordsIterator = records.iterator();
-
-        // TODO: try to modify this null
-        ConsumerRecord<String, Double> latest_quote = null;
-        while(recordsIterator.hasNext()) {
-            ConsumerRecord<String, Double> rcd = recordsIterator.next();
-            if(rcd.key().equals(companyName))
-                latest_quote = rcd;
-        }
-
-        return latest_quote;
+       this.consumer = KafkaHelper.prepareKafkaConsumer(getContext().getSelf());
     }
 
     private Behavior<Signal> buyShare(BuySignal buySignal) {
-        ConsumerRecord<String, Double> latest_quote = this.quoteConsumer(buySignal.companyName);
+        ConsumerRecord<String, Double> latest_quote = KafkaHelper.quoteConsumer(buySignal.companyName, consumer);
 
         if (this.balance >= latest_quote.value()) {
             balance = balance - latest_quote.value();
@@ -120,6 +78,11 @@ public class Trader extends AbstractBehavior<Trader.Signal> {
     }
 
     private Behavior<Signal> sellShare(SellSignal sellSignal) {
+        shares.iterator().forEachRemaining(share -> {
+            if ( ((String) share.get("company")).equalsIgnoreCase(sellSignal.companyName)
+                    && ((Integer) share.get("num_of_shares")) <= sellSignal.numOfShares)
+                System.out.println("share " + sellSignal.companyName + " sold");
+        });
 
         return this;
     }

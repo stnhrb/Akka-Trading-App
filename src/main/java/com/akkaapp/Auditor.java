@@ -7,7 +7,6 @@ import akka.actor.typed.javadsl.AbstractBehavior;
 import akka.actor.typed.javadsl.ActorContext;
 import akka.actor.typed.javadsl.Behaviors;
 import akka.actor.typed.javadsl.Receive;
-import com.typesafe.config.ConfigException;
 
 import java.sql.*;
 import java.util.ArrayList;
@@ -20,12 +19,25 @@ public class Auditor extends AbstractBehavior<Auditor.Transaction> {
     public static class BuyTransaction implements Transaction {
         public final String companyName;
         public final double price;
-
         public final String transactionType = "Buy";
 
         public final ActorRef<Trader.Signal> trader;
 
         public BuyTransaction(String companyName, double price, ActorRef<Trader.Signal> trader) {
+            this.companyName = companyName;
+            this.price = price;
+            this.trader = trader;
+        }
+    }
+
+    public static class SellTransaction implements Transaction {
+        public final String companyName;
+        public final double price;
+        public final String transactionType = "Sell";
+
+        public final ActorRef<Trader.Signal> trader;
+
+        public SellTransaction(String companyName, double price, ActorRef<Trader.Signal> trader) {
             this.companyName = companyName;
             this.price = price;
             this.trader = trader;
@@ -92,17 +104,32 @@ public class Auditor extends AbstractBehavior<Auditor.Transaction> {
         }
     }
 
-    private boolean insertIntoTransactionDb(BuyTransaction buyTransaction) {
+    private boolean insertIntoTransactionDb(Transaction transaction) {
+        String traderId = "", transactionType = "", companyName = "";
+        double price = 0.0;
+
+        if (transaction instanceof BuyTransaction) {
+            traderId = "Trader@" + ((BuyTransaction) transaction).trader.path().uid();
+            transactionType = ((BuyTransaction) transaction).transactionType;
+            companyName = ((BuyTransaction) transaction).companyName;
+            price = ((BuyTransaction) transaction).price;
+        } else {
+            traderId = "Trader@" + ((SellTransaction) transaction).trader.path().uid();
+            transactionType = ((SellTransaction) transaction).transactionType;
+            companyName = ((SellTransaction) transaction).companyName;
+            price = ((SellTransaction) transaction).price;
+        }
+
         try {
             String sqlStatement = "INSERT INTO public.transactions(" +
                                   "trader, transaction_type, company, price) " +
                                   "VALUES (?, ?, ?, ?);";
 
             PreparedStatement insertStatement = databaseConnection.prepareStatement(sqlStatement);
-            insertStatement.setString(1, "Trader@" + buyTransaction.trader.path().uid());
-            insertStatement.setString(2, buyTransaction.transactionType);
-            insertStatement.setString(3, buyTransaction.companyName);
-            insertStatement.setDouble(4, buyTransaction.price);
+            insertStatement.setString(1, traderId);
+            insertStatement.setString(2, transactionType);
+            insertStatement.setString(3, companyName);
+            insertStatement.setDouble(4, price);
 
             insertStatement.executeUpdate();
             return true;
@@ -180,11 +207,12 @@ public class Auditor extends AbstractBehavior<Auditor.Transaction> {
         return this;
     }
 
-    @Override
-    public Receive<Transaction> createReceive() {
-        return newReceiveBuilder()
-                .onMessage(BuyTransaction.class, this::AcknowledgeBuyTransaction)
-                .onSignal(PostStop.class, signal -> onPostStop()).build();
+    private Behavior<Transaction> AcknowledgeSellTransaction(SellTransaction sellTransaction) {
+        if (insertIntoTransactionDb(sellTransaction)) {
+
+        }
+
+        return this;
     }
 
     private Behavior<Transaction> onPostStop() {
@@ -195,5 +223,13 @@ public class Auditor extends AbstractBehavior<Auditor.Transaction> {
             System.out.println(e);
         }
         return this;
+    }
+
+    @Override
+    public Receive<Transaction> createReceive() {
+        return newReceiveBuilder()
+                .onMessage(BuyTransaction.class, this::AcknowledgeBuyTransaction)
+                .onMessage(SellTransaction.class, this::AcknowledgeSellTransaction)
+                .onSignal(PostStop.class, signal -> onPostStop()).build();
     }
 }
