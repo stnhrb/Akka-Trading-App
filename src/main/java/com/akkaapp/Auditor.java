@@ -203,14 +203,13 @@ public class Auditor extends AbstractBehavior<Auditor.Transaction> {
             System.out.println("Trader@" + buyTransaction.trader.path().uid() + " shares are: " + traderShares);
             System.out.println("Buy Transaction Acknowledged");
         } else
-            System.out.println("An error occurred.");
+            System.out.println("An error occurred while acknowledging transaction.");
         return this;
     }
 
     private Behavior<Transaction> AcknowledgeSellTransaction(SellTransaction sellTransaction) {
-        if (insertIntoTransactionDb(sellTransaction)) {
-
-        }
+        // TODO: implement the auditor selling logic
+        if (insertIntoTransactionDb(sellTransaction)) { }
 
         return this;
     }

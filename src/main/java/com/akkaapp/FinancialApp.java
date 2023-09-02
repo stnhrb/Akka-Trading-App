@@ -2,6 +2,7 @@ package com.akkaapp;
 
 import akka.actor.typed.ActorRef;
 import akka.actor.typed.Behavior;
+import akka.actor.typed.MailboxSelector;
 import akka.actor.typed.PostStop;
 import akka.actor.typed.javadsl.AbstractBehavior;
 import akka.actor.typed.javadsl.ActorContext;
@@ -28,14 +29,13 @@ public class FinancialApp extends AbstractBehavior<Void> {
         timedQuoteMessenger.tell(new TimedQuoteMessenger.Start());
 
         ActorRef<Trader.Signal> trader
-                = context.spawn(Trader.create(250), "Trader");
+                = context.spawn(Trader.create(250), "Trader", MailboxSelector.fromConfig("my-app.my-special-mailbox"));
 
         ActorRef<Auditor.Transaction> audit
                 = context.spawn(Auditor.create(), "Auditor");
 
         ActorRef<Broker.Request> broker
                 = context.spawn(Broker.create(audit), "Broker");
-
 
         trader.tell(new Trader.BuySignal("NVDA", broker));
         trader.tell(new Trader.BuySignal("MSFT", broker));

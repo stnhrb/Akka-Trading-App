@@ -65,15 +65,18 @@ public class Broker extends AbstractBehavior<Broker.Request> {
     }
 
     private Behavior<Request> AcknowledgeSellRequest(SellRequest sellRequest) {
+        // TODO: implement the broker selling logic
         boolean foundPriceMatch = matchSellingRequest(sellRequest);
-
         return this;
     }
 
     private boolean matchSellingRequest(SellRequest sellRequest) {
-        for (int i = 0; i < sellRequest.numOfShares; i++) {}
-
-        ConsumerRecord<String, Double> latest_quote = KafkaHelper.quoteConsumer(sellRequest.companyName, consumer);
+        // TODO: implement sell request matching logic
+        for (int i = 0; i < sellRequest.numOfShares; i++)
+        {
+            ConsumerRecord<String, Double> latest_quote = KafkaHelper.quoteConsumer(sellRequest.companyName, consumer);
+            System.out.println("The sell request of " + latest_quote.key() + "is acknowledged and the selling price of share " + i  + " is " + latest_quote.value());
+        }
 
         return false;
     }

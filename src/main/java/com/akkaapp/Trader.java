@@ -8,6 +8,7 @@ import akka.actor.typed.javadsl.ActorContext;
 import akka.actor.typed.javadsl.Behaviors;
 import akka.actor.typed.javadsl.Receive;
 import java.util.*;
+
 import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.apache.kafka.clients.consumer.KafkaConsumer;
 
@@ -47,7 +48,7 @@ public class Trader extends AbstractBehavior<Trader.Signal> {
     }
 
     private double balance;
-    private ArrayList<HashMap<String, Object>> shares = null;
+    private ArrayList<HashMap<String, Object>> shares;
 
     public static Behavior<Signal> create(double balance){
         return Behaviors.setup(context -> new Trader(context, balance));
@@ -56,13 +57,13 @@ public class Trader extends AbstractBehavior<Trader.Signal> {
     private Trader(ActorContext<Signal> context, double balance) {
        super(context);
        this.balance = balance;
+       this.shares = new ArrayList<>();
        this.consumer = KafkaHelper.prepareKafkaConsumer(getContext().getSelf());
     }
 
     private Behavior<Signal> buyShare(BuySignal buySignal) {
         ConsumerRecord<String, Double> latest_quote = KafkaHelper.quoteConsumer(buySignal.companyName, consumer);
-
-        if (this.balance >= latest_quote.value()) {
+        if (balance >= latest_quote.value()) {
             balance = balance - latest_quote.value();
             if (latest_quote != null) {
                 System.out.println("the required quote is + " + latest_quote.key() + " and its value is " + latest_quote.value() + " the offset is " + latest_quote.offset());
@@ -78,18 +79,32 @@ public class Trader extends AbstractBehavior<Trader.Signal> {
     }
 
     private Behavior<Signal> sellShare(SellSignal sellSignal) {
-        shares.iterator().forEachRemaining(share -> {
-            if ( ((String) share.get("company")).equalsIgnoreCase(sellSignal.companyName)
-                    && ((Integer) share.get("num_of_shares")) <= sellSignal.numOfShares)
-                System.out.println("share " + sellSignal.companyName + " sold");
-        });
+        // TODO:
+        //  1- continue to implement the selling logic for trader.
+        //  * here the shares are not updating after every buy request, instead they update after all the buy requests
+        //  get acknowledged by the auditor which result in queueing the update shares messages to be at the end of the
+        //  trader actor mailbox queue, which means any sell message queued after a buy message will not find the shares
+        //  of that buy request.
+        //  Mailbox queue example :[buy, buy, buy, sell, updateShares, updateShares updateShares].
+        //  in the above example the sell request will not find any shares.
 
+        if (!shares.isEmpty())
+        {
+            shares.iterator().forEachRemaining(share -> {
+                if ( ((String) share.get("company")).equalsIgnoreCase(sellSignal.companyName)
+                        && ((Integer) share.get("num_of_shares")) <= sellSignal.numOfShares)
+                    System.out.println("share " + sellSignal.companyName + " sold");
+            });
+        }else {
+            System.out.println("Trader@" + getContext().getSelf().path().uid() + " has no shares");
+        }
         return this;
     }
 
     private Behavior<Signal> updateShares(Shares shares) {
         this.shares = shares.traderShares;
         System.out.println("trader shares updated | shares = " + this.shares);
+
         return this;
     }
 
